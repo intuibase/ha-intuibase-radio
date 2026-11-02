@@ -1,5 +1,7 @@
 # IntuiBase Radio for Home Assistant
 
+[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=intuibase&repository=ha-intuibase-radio&category=integration)
+
 IntuiBase Radio is a standalone Home Assistant custom integration for playing
 internet radio stations on available `media_player` entities.
 
@@ -57,6 +59,35 @@ The same form controls the dashboard and hidden media players.
 The integration was developed and tested with Home Assistant 2026.9.2.
 
 ## Installation
+
+### HACS (custom repository)
+
+HACS is optional. IntuiBase Radio itself does not require a GitHub account,
+GitHub credentials or an API token. HACS requires its own GitHub authorization
+when you set it up; if you prefer not to authorize it, use the manual installation
+below.
+
+With HACS already installed and configured, click **Open in HACS** above to open
+this custom repository in your Home Assistant instance, then download it.
+The button opens HACS; it does not install HACS or download the integration
+automatically.
+
+Alternatively, add the repository manually:
+
+1. Open **HACS → ⋮ → Custom repositories**.
+2. Add `https://github.com/intuibase/ha-intuibase-radio` with type **Integration**.
+3. Find **IntuiBase Radio** in HACS and download it.
+4. Restart Home Assistant.
+5. Open **Settings → Devices & services → Add integration → IntuiBase Radio**.
+
+This repository is prepared for HACS as a custom repository. It is not listed
+in the default HACS catalog. Installation through an authenticated HACS instance
+has not yet been tested.
+
+See the official [HACS custom repository instructions](https://www.hacs.dev/docs/faq/custom_repositories/)
+and [GitHub authorization instructions](https://www.hacs.dev/docs/use/configuration/basic/).
+
+### Manual installation (no GitHub account required)
 
 1. [Download the repository](https://github.com/intuibase/ha-intuibase-radio/archive/refs/heads/main.zip)
    and extract the archive.
@@ -213,6 +244,9 @@ The target media player then connects directly to the broadcaster's stream.
 IntuiBase Radio does not proxy audio through its own server.
 
 ## Updating
+
+If installed with HACS, download the update from HACS and restart Home Assistant.
+For a manual installation:
 
 Back up the installed `custom_components/intuibase_radio` directory, replace it
 with the new version, and restart Home Assistant. Station lists and other
