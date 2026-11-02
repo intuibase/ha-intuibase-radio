@@ -252,6 +252,47 @@ Back up the installed `custom_components/intuibase_radio` directory, replace it
 with the new version, and restart Home Assistant. Station lists and other
 settings are stored in Home Assistant's integration options.
 
+## Releases and changelog
+
+The integration version is defined in
+[`custom_components/intuibase_radio/manifest.json`](custom_components/intuibase_radio/manifest.json).
+The frontend resource cache version is derived from this manifest automatically.
+Write release notes in English in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+
+To publish a release:
+
+1. Set `version` in `manifest.json`, for example `0.3.6`.
+2. Add a matching `## [0.3.6] - YYYY-MM-DD` section to the changelog with the
+   changes for that version. Keep future work under `## [Unreleased]`.
+3. Commit and push these files and the workflow to `main`.
+4. Tag that commit and push the tag:
+
+   ```bash
+   git tag -a v0.3.6 -m "IntuiBase Radio v0.3.6"
+   git push origin v0.3.6
+   ```
+
+For the first release, use `v0.3.5`, matching the current manifest and changelog.
+Tag the commit containing all release files, including the workflow itself.
+
+The [release workflow](.github/workflows/release.yml) runs only when a `v*` tag
+is pushed. A push to `main` alone does not publish a release. The workflow checks
+that the stable tag (`vMAJOR.MINOR.PATCH`) matches the manifest and that exactly
+one nonempty changelog entry exists for that version. It runs the Python and
+frontend tests, then creates a GitHub Release using that changelog entry as its
+release notes. Existing releases are left unchanged when a run is repeated.
+
+No personal access token or additional repository secret is needed: publishing
+uses the temporary GitHub Actions token with `contents: write` permission.
+GitHub Actions must be enabled and organization policies must allow that permission.
+The workflow does not upload a separate ZIP asset; HACS uses the tagged source.
+
+Preview the extracted notes locally before tagging:
+
+```bash
+python3 scripts/release_notes.py --tag v0.3.5 --output /tmp/release-notes.md
+```
+
 ## Development and tests
 
 The tests cover station-list validation, setup and options forms, preserving

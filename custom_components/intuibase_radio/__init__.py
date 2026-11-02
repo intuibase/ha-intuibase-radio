@@ -9,6 +9,7 @@ from homeassistant.const import EVENT_STATE_CHANGED
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.loader import async_get_integration
 
 from .const import (
     CONF_CREATE_DASHBOARD,
@@ -29,7 +30,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     domain_data = hass.data.setdefault(DOMAIN, {})
     domain_data[entry.entry_id] = controller
     if not domain_data.get("_frontend_registered"):
-        resource_url = "/intuibase_radio/internet-radio-card.js?v=0.3.5"
+        integration = await async_get_integration(hass, DOMAIN)
+        resource_url = (
+            f"/intuibase_radio/internet-radio-card.js?v={integration.manifest['version']}"
+        )
         await hass.http.async_register_static_paths(
             [
                 StaticPathConfig(
