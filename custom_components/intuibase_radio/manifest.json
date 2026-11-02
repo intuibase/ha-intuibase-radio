@@ -1,0 +1,18 @@
+{
+  "domain": "intuibase_radio",
+  "name": "IntuiBase Radio",
+  "codeowners": [
+    "@intuibase"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "http",
+    "lovelace",
+    "media_player"
+  ],
+  "documentation": "https://github.com/intuibase/ha-intuibase-radio",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "version": "0.3.4",
+  "issue_tracker": "https://github.com/intuibase/ha-intuibase-radio/issues"
+}

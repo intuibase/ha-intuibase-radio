@@ -1,0 +1,95 @@
+{
+  "title": "IntuiBase Radio",
+  "config": {
+    "step": {
+      "user": {
+        "title": "IntuiBase Radio",
+        "description": "Skonfiguruj radio i opcjonalny panel w menu bocznym.",
+        "data": {
+          "create_dashboard": "Utwórz dashboard",
+          "dashboard_name": "Nazwa dashboardu",
+          "excluded_players": "Ukryte odtwarzacze",
+          "stations": "Stacje / frazy wyszukiwania (query)"
+        },
+        "data_description": {
+          "dashboard_name": "Nazwa wyświetlana w menu bocznym (domyślnie: Radio).",
+          "excluded_players": "Odtwarzacze, które nie powinny być dostępne na liście radia.",
+          "stations": "Jedna stacja w wierszu. Wpisz nazwę albo Nazwa = fraza wyszukiwania, np. Polskie Radio Jedynka = Jedynka. Możesz dodawać, usuwać i przestawiać stacje. Wymagana co najmniej jedna stacja; nazwy muszą być unikalne."
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "IntuiBase Radio jest już skonfigurowane."
+    },
+    "error": {
+      "invalid_stations": "Podaj co najmniej jedną stację. Każdy wiersz musi zawierać unikalną nazwę oraz niepustą frazę po znaku =, jeśli go używasz."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Konfiguracja radia",
+        "description": "Edytuj listę stacji, ustawienia dashboardu i ukryte odtwarzacze.",
+        "data": {
+          "create_dashboard": "Utwórz dashboard",
+          "dashboard_name": "Nazwa dashboardu",
+          "excluded_players": "Ukryte odtwarzacze",
+          "stations": "Stacje / frazy wyszukiwania (query)"
+        },
+        "data_description": {
+          "dashboard_name": "Nazwa wyświetlana w menu bocznym (domyślnie: Radio).",
+          "excluded_players": "Odtwarzacze, które nie powinny być dostępne na liście radia.",
+          "stations": "Jedna stacja w wierszu. Wpisz nazwę albo Nazwa = fraza wyszukiwania, np. Polskie Radio Jedynka = Jedynka. Możesz dodawać, usuwać i przestawiać stacje. Wymagana co najmniej jedna stacja; nazwy muszą być unikalne."
+        }
+      }
+    },
+    "error": {
+      "invalid_stations": "Podaj co najmniej jedną stację. Każdy wiersz musi zawierać unikalną nazwę oraz niepustą frazę po znaku =, jeśli go używasz."
+    }
+  },
+  "entity": {
+    "button": {
+      "play_station": {
+        "name": "Odtwórz stację"
+      },
+      "resume": {
+        "name": "Wznów"
+      },
+      "pause": {
+        "name": "Pauza"
+      },
+      "stop": {
+        "name": "Stop"
+      },
+      "previous_stream": {
+        "name": "Poprzedni stream"
+      },
+      "next_stream": {
+        "name": "Następny stream"
+      }
+    },
+    "media_player": {
+      "media_player": {
+        "name": "Odtwarzacz"
+      }
+    },
+    "number": {
+      "volume": {
+        "name": "Głośność"
+      }
+    },
+    "select": {
+      "station": {
+        "name": "Stacja"
+      },
+      "player": {
+        "name": "Odtwarzaj na"
+      }
+    },
+    "sensor": {
+      "status": {
+        "name": "Status"
+      }
+    }
+  }
+}
