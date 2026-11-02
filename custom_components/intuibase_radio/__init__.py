@@ -29,7 +29,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     domain_data = hass.data.setdefault(DOMAIN, {})
     domain_data[entry.entry_id] = controller
     if not domain_data.get("_frontend_registered"):
-        resource_url = "/intuibase_radio/internet-radio-card.js?v=0.9.0"
+        resource_url = "/intuibase_radio/internet-radio-card.js?v=0.3.5"
         await hass.http.async_register_static_paths(
             [
                 StaticPathConfig(

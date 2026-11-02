@@ -1,7 +1,88 @@
+const RADIO_TRANSLATIONS = {
+  "en": {
+    "stations": "Stations",
+    "hint": "Click: select • Double-click: play",
+    "station_help": "Click to select. Double-click to play.",
+    "missing": "Entity not found:",
+    "connection": "Connection status",
+    "previous": "Fallback: previous stream",
+    "next": "Fallback: next stream",
+    "ready": "Ready",
+    "not_playing": "Not playing",
+    "volume": "Volume",
+    "volume_hint": "Drag, scroll or use the arrow keys",
+    "station_required": "A station select entity is required",
+    "status_required": "A radio status entity is required",
+    "volume_required": "A volume number entity is required",
+    "playing": "Playing",
+    "buffering": "Buffering",
+    "paused": "Paused",
+    "idle": "Idle",
+    "off": "Off",
+    "unknown": "Unknown",
+    "unavailable": "Unavailable"
+  },
+  "pl": {
+    "stations": "Stacje",
+    "hint": "Kliknij: wybierz • Dwuklik: graj",
+    "station_help": "Kliknij, aby wybrać. Kliknij dwa razy, aby odtworzyć.",
+    "missing": "Brak encji:",
+    "connection": "Status połączenia",
+    "previous": "Awaryjnie: poprzedni stream",
+    "next": "Awaryjnie: następny stream",
+    "ready": "Gotowe",
+    "not_playing": "Nie odtwarzam",
+    "volume": "Głośność",
+    "volume_hint": "Przeciągnij, przewiń lub użyj strzałek",
+    "station_required": "Wymagana jest encja select stacji",
+    "status_required": "Wymagana jest encja statusu radia",
+    "volume_required": "Wymagana jest encja number głośności",
+    "playing": "Odtwarzanie",
+    "buffering": "Buforowanie",
+    "paused": "Pauza",
+    "idle": "Bezczynny",
+    "off": "Wyłączony",
+    "unknown": "Nieznany",
+    "unavailable": "Niedostępny"
+  },
+  "de": {
+    "stations": "Sender",
+    "hint": "Klicken: auswählen • Doppelklicken: wiedergeben",
+    "station_help": "Zum Auswählen klicken. Zur Wiedergabe doppelklicken.",
+    "missing": "Entität nicht gefunden:",
+    "connection": "Verbindungsstatus",
+    "previous": "Alternative: vorheriger Stream",
+    "next": "Alternative: nächster Stream",
+    "ready": "Bereit",
+    "not_playing": "Keine Wiedergabe",
+    "volume": "Lautstärke",
+    "volume_hint": "Ziehen, scrollen oder Pfeiltasten verwenden",
+    "station_required": "Eine Senderauswahl-Entität ist erforderlich",
+    "status_required": "Eine Radio-Statusentität ist erforderlich",
+    "volume_required": "Eine Lautstärke-Entität vom Typ number ist erforderlich",
+    "playing": "Wiedergabe",
+    "buffering": "Puffern",
+    "paused": "Pausiert",
+    "idle": "Inaktiv",
+    "off": "Aus",
+    "unknown": "Unbekannt",
+    "unavailable": "Nicht verfügbar"
+  }
+};
+
+function radioLanguage(hass) {
+  const language = (hass?.language || "en").toLowerCase().replace(/_/g, "-").split("-")[0];
+  return RADIO_TRANSLATIONS[language] ? language : "en";
+}
+
+function radioText(hass, key) {
+  return RADIO_TRANSLATIONS[radioLanguage(hass)][key] ?? RADIO_TRANSLATIONS.en[key] ?? key;
+}
+
 class IntuiBaseRadioStations extends HTMLElement {
   setConfig(config) {
     if (!config.entity) {
-      throw new Error("Wymagana jest encja select stacji");
+      throw new Error(radioText(this._hass, "station_required"));
     }
     this.config = config;
     if (!this.shadowRoot) {
@@ -48,35 +129,32 @@ class IntuiBaseRadioStations extends HTMLElement {
       this.list.className = "stations";
       this.hint = document.createElement("div");
       this.hint.className = "list-hint";
-      this.hint.textContent = "Click: select • Double-click: play";
+      this.hint.textContent = radioText(this._hass, "hint");
       this.card.append(this.header, this.list, this.hint);
       this.shadowRoot.append(this.card);
     }
-    this.header.textContent = config.title || "Stacje";
+    this.header.textContent = config.title || radioText(this._hass, "stations");
     this.style.setProperty("--radio-list-height", config.max_height || "360px");
   }
 
   set hass(hass) {
     this._hass = hass;
-    const polish = (hass.language || "").toLowerCase().startsWith("pl");
-    this.hint.textContent = polish
-      ? "Kliknij: wybierz • Dwuklik: graj"
-      : "Click: select • Double-click: play";
+    this.header.textContent = this.config.title || radioText(hass, "stations");
+    this.hint.textContent = radioText(hass, "hint");
     const state = hass.states[this.config.entity];
     if (!state) {
-      this.list.textContent = `Brak encji ${this.config.entity}`;
+      this._signature = null;
+      this.list.textContent = `${radioText(hass, "missing")} ${this.config.entity}`;
       return;
     }
     const options = state.attributes.options || [];
-    const signature = `${state.state}|${options.join("\u0000")}`;
+    const signature = `${radioLanguage(hass)}|${state.state}|${options.join("\u0000")}`;
     if (signature === this._signature) return;
     this._signature = signature;
     this.list.replaceChildren();
     for (const option of options) {
       const button = document.createElement("button");
-      button.title = polish
-        ? "Kliknij, aby wybrać. Kliknij dwa razy, aby odtworzyć."
-        : "Click to select. Double-click to play.";
+      button.title = radioText(hass, "station_help");
       if (option === state.state) button.classList.add("selected");
       const icon = document.createElement("ha-icon");
       icon.setAttribute("icon", option === state.state ? "mdi:radio" : "mdi:radio-tower");
@@ -114,7 +192,7 @@ customElements.define("intuibase-radio-stations", IntuiBaseRadioStations);
 
 class IntuiBaseRadioStatus extends HTMLElement {
   setConfig(config) {
-    if (!config.entity) throw new Error("Wymagana jest encja statusu radia");
+    if (!config.entity) throw new Error(radioText(this._hass, "status_required"));
     this.config = config;
     if (this.shadowRoot) return;
     this.attachShadow({ mode: "open" });
@@ -167,17 +245,18 @@ class IntuiBaseRadioStatus extends HTMLElement {
     status.className = "status";
     const label = document.createElement("div");
     label.className = "label";
-    label.textContent = config.title || "Status połączenia";
+    this.statusLabel = label;
+    label.textContent = config.title || radioText(this._hass, "connection");
     this.value = document.createElement("div");
     this.value.className = "value";
     status.append(label, this.value);
     const emergency = document.createElement("div");
     emergency.className = "emergency";
     this.previousButton = this._button(
-      "mdi:skip-previous", "Fallback: previous stream", config.previous_button
+      "mdi:skip-previous", radioText(this._hass, "previous"), config.previous_button
     );
     this.nextButton = this._button(
-      "mdi:skip-next", "Fallback: next stream", config.next_button
+      "mdi:skip-next", radioText(this._hass, "next"), config.next_button
     );
     emergency.append(this.previousButton, this.nextButton);
     card.append(status, emergency);
@@ -200,15 +279,15 @@ class IntuiBaseRadioStatus extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    const polish = (hass.language || "").toLowerCase().startsWith("pl");
-    const previousTitle = polish ? "Awaryjnie: poprzedni stream" : "Fallback: previous stream";
-    const nextTitle = polish ? "Awaryjnie: następny stream" : "Fallback: next stream";
+    this.statusLabel.textContent = this.config.title || radioText(hass, "connection");
+    const previousTitle = radioText(hass, "previous");
+    const nextTitle = radioText(hass, "next");
     this.previousButton.title = previousTitle;
     this.previousButton.setAttribute("aria-label", previousTitle);
     this.nextButton.title = nextTitle;
     this.nextButton.setAttribute("aria-label", nextTitle);
     const state = hass.states[this.config.entity];
-    this.value.textContent = state?.attributes?.short_status || state?.state || (polish ? "Gotowe" : "Ready");
+    this.value.textContent = state?.attributes?.short_status || state?.state || radioText(hass, "ready");
     this.value.title = this.value.textContent;
   }
 
@@ -219,7 +298,7 @@ customElements.define("intuibase-radio-status", IntuiBaseRadioStatus);
 
 class IntuiBaseRadioArtwork extends HTMLElement {
   setConfig(config) {
-    if (!config.entity) throw new Error("A radio status entity is required");
+    if (!config.entity) throw new Error(radioText(this._hass, "status_required"));
     this.config = config;
     if (this.shadowRoot) return;
     this.attachShadow({ mode: "open" });
@@ -303,16 +382,13 @@ class IntuiBaseRadioArtwork extends HTMLElement {
 
   set hass(hass) {
     const state = hass.states[this.config.entity];
-    const polish = (hass.language || "").toLowerCase().startsWith("pl");
-    const station = state?.attributes?.playing_station || (polish ? "Nie odtwarzam" : "Not playing");
+    this._hass = hass;
+    const station = state?.attributes?.playing_station || radioText(hass, "not_playing");
     const playerState = state?.attributes?.player_state || "idle";
-    const stateLabels = polish
-      ? { playing: "Odtwarzanie", buffering: "Buforowanie", paused: "Pauza", idle: "Bezczynny", off: "Wyłączony" }
-      : { playing: "Playing", buffering: "Buffering", paused: "Paused", idle: "Idle", off: "Off" };
     const imageUrl = state?.attributes?.station_image_url || "";
     this.label.textContent = station;
     this.label.title = station;
-    this.station.textContent = stateLabels[playerState] || playerState;
+    this.station.textContent = radioText(hass, playerState);
     if (imageUrl === this._imageUrl) return;
     this._imageUrl = imageUrl;
     if (!imageUrl) {
@@ -336,7 +412,7 @@ customElements.define("intuibase-radio-artwork", IntuiBaseRadioArtwork);
 
 class IntuiBaseVolumeKnob extends HTMLElement {
   setConfig(config) {
-    if (!config.entity) throw new Error("Wymagana jest encja number głośności");
+    if (!config.entity) throw new Error(radioText(this._hass, "volume_required"));
     this.config = config;
     if (this.shadowRoot) return;
     this.attachShadow({ mode: "open" });
@@ -386,7 +462,8 @@ class IntuiBaseVolumeKnob extends HTMLElement {
     this.card = document.createElement("ha-card");
     const title = document.createElement("div");
     title.className = "title";
-    title.textContent = config.title || "Głośność";
+    this.title = title;
+    title.textContent = config.title || radioText(this._hass, "volume");
     this.knob = document.createElement("div");
     this.knob.className = "knob";
     this.knob.tabIndex = 0;
@@ -402,7 +479,8 @@ class IntuiBaseVolumeKnob extends HTMLElement {
     this.valueLabel.className = "value";
     const hint = document.createElement("div");
     hint.className = "hint";
-    hint.textContent = "Przeciągnij, przewiń lub użyj strzałek";
+    this.hint = hint;
+    hint.textContent = radioText(this._hass, "volume_hint");
     this.card.append(title, this.knob, this.valueLabel, hint);
     this.shadowRoot.append(style, this.card);
 
@@ -431,6 +509,9 @@ class IntuiBaseVolumeKnob extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+    this.title.textContent = this.config.title || radioText(hass, "volume");
+    this.hint.textContent = radioText(hass, "volume_hint");
+    this.knob.setAttribute("aria-label", radioText(hass, "volume"));
     if (this._dragging) return;
     const state = hass.states[this.config.entity];
     if (!state) return;
@@ -479,12 +560,12 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "intuibase-radio-stations",
   name: "IntuiBase Radio Stations",
-  description: "Przewijana lista stacji IntuiBase Radio",
+  description: "Scrollable IntuiBase Radio station list",
 });
 window.customCards.push({
   type: "intuibase-radio-status",
   name: "IntuiBase Radio Status",
-  description: "Kompaktowy status z awaryjną zmianą streamu",
+  description: "Compact connection status with stream fallback controls",
 });
 window.customCards.push({
   type: "intuibase-radio-artwork",
@@ -494,5 +575,5 @@ window.customCards.push({
 window.customCards.push({
   type: "intuibase-volume-knob",
   name: "IntuiBase Volume Knob",
-  description: "Interaktywne pokrętło głośności",
+  description: "Interactive volume knob",
 });

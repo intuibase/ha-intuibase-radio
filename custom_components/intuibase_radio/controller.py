@@ -18,6 +18,8 @@ from homeassistant.util import dt as dt_util
 
 from .const import CONF_EXCLUDED_PLAYERS, CONF_STATIONS, CONF_TARGET_PLAYER, RADIO_BROWSER_URLS, STATIONS
 
+from .localize import translate
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -56,7 +58,7 @@ class RadioController:
 
     def _t(self, english: str, polish: str) -> str:
         """Return a runtime label in the Home Assistant language."""
-        return polish if self.hass.config.language.lower().startswith("pl") else english
+        return translate(self.hass.config.language, english, polish)
 
     @property
     def no_players_label(self) -> str:
@@ -324,9 +326,9 @@ class RadioController:
         except TimeoutError:
             timeout = 60 if self.playback_phase == "buffering" else 30
             phase = self._t("buffering", "buforowania") if self.playback_phase == "buffering" else self._t("connection", "połączenia")
-            self.short_status = f"Timeout {phase}: stream {index + 1}/{len(self.streams)}"
+            self.short_status = f"{self._t('Timeout', 'Przekroczono czas')} {phase}: stream {index + 1}/{len(self.streams)}"
             self.set_status(
-                f"Timeout {phase} {self._t('after', 'po')} {timeout} s: {self.streams[index][0]}"
+                f"{self._t('Timeout', 'Przekroczono czas')} {phase} {self._t('after', 'po')} {timeout} s: {self.streams[index][0]}"
             )
             return
         except Exception as err:
@@ -369,9 +371,9 @@ class RadioController:
                     timeout = 60 if self.playback_phase == "buffering" else 30
                     phase = self._t("buffering", "buforowania") if self.playback_phase == "buffering" else self._t("connection", "połączenia")
                     errors.append(f"{url}: timeout {phase} {timeout} s")
-                    self.short_status = f"Timeout {phase}: stream {index + 1}/{len(self.streams)}"
+                    self.short_status = f"{self._t('Timeout', 'Przekroczono czas')} {phase}: stream {index + 1}/{len(self.streams)}"
                     self.set_status(
-                        f"Timeout {phase} {index + 1}/{len(self.streams)} {self._t('after', 'po')} {timeout} s: {url}"
+                        f"{self._t('Timeout', 'Przekroczono czas')} {phase} {index + 1}/{len(self.streams)} {self._t('after', 'po')} {timeout} s: {url}"
                     )
                     _LOGGER.warning("Radio stream %s timed out after %s seconds: %s", phase, timeout, url)
                     continue

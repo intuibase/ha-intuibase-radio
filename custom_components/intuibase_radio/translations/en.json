@@ -1,0 +1,95 @@
+{
+  "title": "IntuiBase Radio",
+  "config": {
+    "step": {
+      "user": {
+        "title": "IntuiBase Radio",
+        "description": "Configure the radio and its optional sidebar dashboard.",
+        "data": {
+          "create_dashboard": "Create dashboard",
+          "dashboard_name": "Dashboard name",
+          "excluded_players": "Hidden media players",
+          "stations": "Stations / search phrases (query)"
+        },
+        "data_description": {
+          "dashboard_name": "Name displayed in the sidebar (default: Radio).",
+          "excluded_players": "Media players that should not appear in the radio output list.",
+          "stations": "One station per line. Enter a name or Name = search phrase, e.g. Polskie Radio Jedynka = Jedynka. Add, remove or reorder stations. At least one station is required; names must be unique."
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "IntuiBase Radio is already configured."
+    },
+    "error": {
+      "invalid_stations": "Enter at least one station. Each line must have a unique name and a nonempty search phrase after = if used."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Radio configuration",
+        "description": "Edit stations, dashboard settings and hidden media players.",
+        "data": {
+          "create_dashboard": "Create dashboard",
+          "dashboard_name": "Dashboard name",
+          "excluded_players": "Hidden media players",
+          "stations": "Stations / search phrases (query)"
+        },
+        "data_description": {
+          "dashboard_name": "Name displayed in the sidebar (default: Radio).",
+          "excluded_players": "Media players that should not appear in the radio output list.",
+          "stations": "One station per line. Enter a name or Name = search phrase, e.g. Polskie Radio Jedynka = Jedynka. Add, remove or reorder stations. At least one station is required; names must be unique."
+        }
+      }
+    },
+    "error": {
+      "invalid_stations": "Enter at least one station. Each line must have a unique name and a nonempty search phrase after = if used."
+    }
+  },
+  "entity": {
+    "button": {
+      "play_station": {
+        "name": "Play station"
+      },
+      "resume": {
+        "name": "Resume"
+      },
+      "pause": {
+        "name": "Pause"
+      },
+      "stop": {
+        "name": "Stop"
+      },
+      "previous_stream": {
+        "name": "Previous stream"
+      },
+      "next_stream": {
+        "name": "Next stream"
+      }
+    },
+    "media_player": {
+      "media_player": {
+        "name": "Player"
+      }
+    },
+    "number": {
+      "volume": {
+        "name": "Volume"
+      }
+    },
+    "select": {
+      "station": {
+        "name": "Station"
+      },
+      "player": {
+        "name": "Play on"
+      }
+    },
+    "sensor": {
+      "status": {
+        "name": "Status"
+      }
+    }
+  }
+}

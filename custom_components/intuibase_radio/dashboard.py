@@ -6,6 +6,8 @@ from homeassistant.components.lovelace.dashboard import LovelaceStorage
 from homeassistant.core import HomeAssistant
 from homeassistant.util import slugify
 
+from .localize import translate
+
 
 class RadioDashboard:
     def __init__(
@@ -22,7 +24,7 @@ class RadioDashboard:
         self.store = None
 
     def _t(self, english: str, polish: str) -> str:
-        return polish if self.hass.config.language.lower().startswith("pl") else english
+        return translate(self.hass.config.language, english, polish)
 
     async def async_start(self) -> None:
         self.store = await self._async_start_panel(
@@ -137,7 +139,7 @@ class RadioDashboard:
                                     ),
                                     self._transport_button(
                                         "button.intuibase_radio_resume",
-                                        "PLAY",
+                                        self._t("RESUME", "WZNÓW"),
                                         "mdi:play",
                                     ),
                                     self._transport_button(
@@ -147,7 +149,7 @@ class RadioDashboard:
                                     ),
                                     self._transport_button(
                                         "button.intuibase_radio_stop",
-                                        "STOP",
+                                        self._t("STOP", "STOP"),
                                         "mdi:stop",
                                     ),
                                 ],

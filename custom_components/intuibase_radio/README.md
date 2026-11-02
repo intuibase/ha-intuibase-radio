@@ -25,7 +25,7 @@ Radio Browser network endpoint with a direct-server fallback and IPv4 transport.
 - connection history containing the attempt number, URL, and error;
 - automatic fallback after a playback error, 30 seconds without a connection,
   or 60 seconds of buffering without playback;
-- English base interface with Polish translations;
+- English default interface with Polish and German translations;
 - local Home Assistant integration branding.
 
 ## Requirements
@@ -75,6 +75,19 @@ integration. They are registered automatically; HACS is not required.
 
 Dashboard settings can be changed later through **Settings → Devices & services
 → IntuiBase Radio → Configure**.
+
+## Interface languages
+
+English is the default and the fallback for unsupported languages. Polish and
+German translations cover setup, integration options, entity names, dashboard
+labels, card hints and playback messages.
+
+- Home Assistant translates forms and entity labels using the user's language.
+- Custom radio cards use the language selected in the user's Home Assistant profile.
+- Playback messages and generated dashboard labels use the Home Assistant system
+  language. Reload the integration after changing the system language to rebuild
+  the dashboard.
+- Station names and a custom dashboard name stay as entered.
 
 ## Playback flow
 

@@ -9,6 +9,26 @@ directory, ranks the results, removes duplicate URLs, and tries the streams in
 order. Searches and ranking are not restricted by country. API requests use the
 Radio Browser network endpoint with a direct-server fallback and IPv4 transport.
 
+## Screenshots
+
+The English interface shown below runs in a local Home Assistant demo instance
+with example media players.
+
+### Radio dashboard
+
+Choose a station and an output player, control playback and volume, and check
+the connection status from the built-in dashboard.
+
+![IntuiBase Radio dashboard in English with a station list, output selection, playback controls and volume slider](docs/images/radio-dashboard.png)
+
+### Station configuration
+
+Edit the station list in the integration options. Enter one station per line,
+or use `Display name = search phrase` to customize the Radio Browser query.
+The same form controls the dashboard and hidden media players.
+
+![IntuiBase Radio configuration in English with editable station names and search phrases, dashboard settings and player exclusions](docs/images/station-configuration.png)
+
 ## Features
 
 - editable list of Polish and international stations and search phrases;
@@ -25,7 +45,7 @@ Radio Browser network endpoint with a direct-server fallback and IPv4 transport.
 - connection history containing the attempt number, URL, and error;
 - automatic fallback after a playback error, 30 seconds without a connection,
   or 60 seconds of buffering without playback;
-- English base interface with Polish translations;
+- English default interface with Polish and German translations;
 - local Home Assistant integration branding.
 
 ## Requirements
@@ -78,6 +98,19 @@ integration. They are registered automatically; HACS is not required.
 
 Dashboard settings can be changed later through **Settings → Devices & services
 → IntuiBase Radio → Configure**.
+
+## Interface languages
+
+English is the default and the fallback for unsupported languages. Polish and
+German translations cover setup, integration options, entity names, dashboard
+labels, card hints and playback messages.
+
+- Home Assistant translates forms and entity labels using the user's language.
+- Custom radio cards use the language selected in the user's Home Assistant profile.
+- Playback messages and generated dashboard labels use the Home Assistant system
+  language. Reload the integration after changing the system language to rebuild
+  the dashboard.
+- Station names and a custom dashboard name stay as entered.
 
 ## Playback flow
 
@@ -188,7 +221,8 @@ settings are stored in Home Assistant's integration options.
 ## Development and tests
 
 The tests cover station-list validation, setup and options forms, preserving
-existing settings, media-player sources, and custom Radio Browser queries.
+existing settings, media-player sources, custom Radio Browser queries and
+translation completeness.
 Run them with Python and Home Assistant installed:
 
 ```bash
@@ -202,6 +236,12 @@ docker run --rm --network none --entrypoint python \
   -v "$PWD:/workspace:ro" -w /workspace \
   ghcr.io/home-assistant/home-assistant:2026.9.2 \
   -m unittest discover -s tests -v
+```
+
+The custom cards also have dependency-free JavaScript tests (Node.js required):
+
+```bash
+node tests/test_frontend.cjs
 ```
 
 ## Support

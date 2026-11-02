@@ -1,0 +1,95 @@
+{
+  "title": "IntuiBase Radio",
+  "config": {
+    "step": {
+      "user": {
+        "title": "IntuiBase Radio",
+        "description": "Konfiguriere das Radio und sein optionales Dashboard in der Seitenleiste.",
+        "data": {
+          "create_dashboard": "Dashboard erstellen",
+          "dashboard_name": "Dashboard-Name",
+          "excluded_players": "Ausgeblendete Medienplayer",
+          "stations": "Sender / Suchbegriffe (query)"
+        },
+        "data_description": {
+          "dashboard_name": "Name in der Seitenleiste (Standard: Radio).",
+          "excluded_players": "Medienplayer, die nicht in der Ausgabeliste des Radios erscheinen sollen.",
+          "stations": "Ein Sender pro Zeile. Gib einen Namen oder Name = Suchbegriff ein, z. B. Polskie Radio Jedynka = Jedynka. Sender können hinzugefügt, entfernt und umgeordnet werden. Mindestens ein Sender ist erforderlich; Namen müssen eindeutig sein."
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "IntuiBase Radio ist bereits konfiguriert."
+    },
+    "error": {
+      "invalid_stations": "Gib mindestens einen Sender ein. Jede Zeile muss einen eindeutigen Namen und bei Verwendung von = einen nicht leeren Suchbegriff danach enthalten."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Radio-Konfiguration",
+        "description": "Bearbeite die Senderliste, Dashboard-Einstellungen und ausgeblendeten Medienplayer.",
+        "data": {
+          "create_dashboard": "Dashboard erstellen",
+          "dashboard_name": "Dashboard-Name",
+          "excluded_players": "Ausgeblendete Medienplayer",
+          "stations": "Sender / Suchbegriffe (query)"
+        },
+        "data_description": {
+          "dashboard_name": "Name in der Seitenleiste (Standard: Radio).",
+          "excluded_players": "Medienplayer, die nicht in der Ausgabeliste des Radios erscheinen sollen.",
+          "stations": "Ein Sender pro Zeile. Gib einen Namen oder Name = Suchbegriff ein, z. B. Polskie Radio Jedynka = Jedynka. Sender können hinzugefügt, entfernt und umgeordnet werden. Mindestens ein Sender ist erforderlich; Namen müssen eindeutig sein."
+        }
+      }
+    },
+    "error": {
+      "invalid_stations": "Gib mindestens einen Sender ein. Jede Zeile muss einen eindeutigen Namen und bei Verwendung von = einen nicht leeren Suchbegriff danach enthalten."
+    }
+  },
+  "entity": {
+    "button": {
+      "play_station": {
+        "name": "Sender wiedergeben"
+      },
+      "resume": {
+        "name": "Fortsetzen"
+      },
+      "pause": {
+        "name": "Pause"
+      },
+      "stop": {
+        "name": "Stopp"
+      },
+      "previous_stream": {
+        "name": "Vorheriger Stream"
+      },
+      "next_stream": {
+        "name": "Nächster Stream"
+      }
+    },
+    "media_player": {
+      "media_player": {
+        "name": "Medienplayer"
+      }
+    },
+    "number": {
+      "volume": {
+        "name": "Lautstärke"
+      }
+    },
+    "select": {
+      "station": {
+        "name": "Sender"
+      },
+      "player": {
+        "name": "Wiedergeben auf"
+      }
+    },
+    "sensor": {
+      "status": {
+        "name": "Status"
+      }
+    }
+  }
+}
