@@ -13,6 +13,6 @@
   "documentation": "https://github.com/intuibase/ha-intuibase-radio",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "version": "0.3.5",
+  "version": "0.4.0",
   "issue_tracker": "https://github.com/intuibase/ha-intuibase-radio/issues"
 }

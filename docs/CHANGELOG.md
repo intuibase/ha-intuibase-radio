@@ -5,6 +5,8 @@ The release workflow copies the matching version section into GitHub Release not
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-03
+
 ### Added
 
 - Song/programme title, artist and album in the artwork card and native

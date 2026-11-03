@@ -338,18 +338,18 @@ Write release notes in English in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 To publish a release:
 
-1. Set `version` in `manifest.json`, for example `0.3.6`.
-2. Add a matching `## [0.3.6] - YYYY-MM-DD` section to the changelog with the
+1. Set `version` in `manifest.json`, for example `0.4.0`.
+2. Add a matching `## [0.4.0] - YYYY-MM-DD` section to the changelog with the
    changes for that version. Keep future work under `## [Unreleased]`.
 3. Commit and push these files and the workflow to `main`.
 4. Tag that commit and push the tag:
 
    ```bash
-   git tag -a v0.3.6 -m "IntuiBase Radio v0.3.6"
-   git push origin v0.3.6
+   git tag -a v0.4.0 -m "IntuiBase Radio v0.4.0"
+   git push origin v0.4.0
    ```
 
-For the first release, use `v0.3.5`, matching the current manifest and changelog.
+For this release, use `v0.4.0`, matching the current manifest and changelog.
 Tag the commit containing all release files, including the workflow itself.
 
 The [release workflow](.github/workflows/release.yml) runs only when a `v*` tag
@@ -367,7 +367,7 @@ The workflow does not upload a separate ZIP asset; HACS uses the tagged source.
 Preview the extracted notes locally before tagging:
 
 ```bash
-python3 scripts/release_notes.py --tag v0.3.5 --output /tmp/release-notes.md
+python3 scripts/release_notes.py --tag v0.4.0 --output /tmp/release-notes.md
 ```
 
 ## Development and tests
