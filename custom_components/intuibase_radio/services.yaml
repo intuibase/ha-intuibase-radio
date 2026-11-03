@@ -1,0 +1,18 @@
+play_station:
+  name: Play station
+  description: Play a configured station on one output, independently of the shared dashboard selections.
+  fields:
+    entity_id:
+      name: Output player
+      description: Media player on which to start this station.
+      required: true
+      selector:
+        entity:
+          domain: media_player
+    station:
+      name: Station
+      description: Station name from the integration's configured catalogue.
+      required: true
+      example: Polskie Radio Trójka
+      selector:
+        text:

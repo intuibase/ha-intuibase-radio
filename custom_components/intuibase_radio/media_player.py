@@ -59,7 +59,18 @@ class InternetRadioPlayer(RadioEntity, MediaPlayerEntity):
 
     @property
     def media_title(self) -> str:
-        return self.controller.station
+        metadata = self.controller.now_playing
+        return metadata.title if metadata else (self.controller.playing_station or self.controller.station)
+
+    @property
+    def media_artist(self) -> str | None:
+        metadata = self.controller.now_playing
+        return metadata.artist if metadata else None
+
+    @property
+    def media_album_name(self) -> str | None:
+        metadata = self.controller.now_playing
+        return metadata.album if metadata else None
 
     @property
     def media_content_type(self) -> MediaType:
@@ -82,7 +93,7 @@ class InternetRadioPlayer(RadioEntity, MediaPlayerEntity):
         }
 
     async def async_media_play(self) -> None:
-        await self.controller.play()
+        await self.controller.play(context=self._context)
 
     async def async_media_pause(self) -> None:
         await self.controller.command("media_pause")
@@ -96,11 +107,6 @@ class InternetRadioPlayer(RadioEntity, MediaPlayerEntity):
     async def async_select_source(self, source: str) -> None:
         if source in self.controller.stations:
             self.controller.station = source
-            self.controller.stream_url = None
-            self.controller.attempt = 0
-            self.controller.attempt_count = 0
-            self.controller.streams = []
-            self.controller.stream_index = -1
             self.controller.set_status(
                 self.controller._t("Selected", "Wybrano") + f": {source}"
             )

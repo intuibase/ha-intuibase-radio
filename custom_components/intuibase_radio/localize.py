@@ -1,6 +1,9 @@
 """Runtime labels use the HA system language, falling back to English."""
 
 GERMAN = {
+    "Playback taken over": "Wiedergabe übernommen",
+    "Reconnecting stream": "Stream wird erneut verbunden",
+    "Automatic recovery stopped": "Automatische Wiederherstellung beendet",
     "Selected": "Ausgewählt",
     "Ready": "Bereit",
     "No media players": "Keine Medienplayer",

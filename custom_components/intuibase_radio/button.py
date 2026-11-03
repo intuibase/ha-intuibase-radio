@@ -29,10 +29,10 @@ class RadioButton(RadioEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         if self.service is None:
-            await self.controller.play()
+            await self.controller.play(context=self._context)
         elif self.service == "previous_stream":
-            await self.controller.switch_stream(-1)
+            await self.controller.switch_stream(-1, context=self._context)
         elif self.service == "next_stream":
-            await self.controller.switch_stream(1)
+            await self.controller.switch_stream(1, context=self._context)
         else:
             await self.controller.command(self.service)

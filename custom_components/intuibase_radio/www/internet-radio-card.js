@@ -9,6 +9,7 @@ const RADIO_TRANSLATIONS = {
     "next": "Fallback: next stream",
     "ready": "Ready",
     "not_playing": "Not playing",
+    "now_playing": "On air",
     "volume": "Volume",
     "volume_hint": "Drag, scroll or use the arrow keys",
     "station_required": "A station select entity is required",
@@ -32,6 +33,7 @@ const RADIO_TRANSLATIONS = {
     "next": "Awaryjnie: następny stream",
     "ready": "Gotowe",
     "not_playing": "Nie odtwarzam",
+    "now_playing": "Teraz na antenie",
     "volume": "Głośność",
     "volume_hint": "Przeciągnij, przewiń lub użyj strzałek",
     "station_required": "Wymagana jest encja select stacji",
@@ -55,6 +57,7 @@ const RADIO_TRANSLATIONS = {
     "next": "Alternative: nächster Stream",
     "ready": "Bereit",
     "not_playing": "Keine Wiedergabe",
+    "now_playing": "Jetzt auf Sendung",
     "volume": "Lautstärke",
     "volume_hint": "Ziehen, scrollen oder Pfeiltasten verwenden",
     "station_required": "Eine Senderauswahl-Entität ist erforderlich",
@@ -355,6 +358,12 @@ class IntuiBaseRadioArtwork extends HTMLElement {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .now-playing { padding: 12px 16px 16px; overflow-wrap: anywhere; }
+      .now-playing-heading, .now-playing-detail {
+        color: var(--secondary-text-color);
+        font-size: 13px;
+      }
+      .now-playing-title { font-size: 17px; margin: 4px 0; }
     `;
     const card = document.createElement("ha-card");
     const artwork = document.createElement("div");
@@ -376,6 +385,19 @@ class IntuiBaseRadioArtwork extends HTMLElement {
     caption.append(this.label, this.station);
     artwork.append(this.image, this.fallback, caption);
     card.append(artwork);
+    this.nowPlaying = document.createElement("div");
+    this.nowPlaying.className = "now-playing";
+    this.nowPlaying.style.display = "none";
+    this.nowPlaying.setAttribute("aria-live", "polite");
+    this.nowPlaying.setAttribute("aria-atomic", "true");
+    this.nowPlayingHeading = document.createElement("div");
+    this.nowPlayingHeading.className = "now-playing-heading";
+    this.nowPlayingTitle = document.createElement("div");
+    this.nowPlayingTitle.className = "now-playing-title";
+    this.nowPlayingDetail = document.createElement("div");
+    this.nowPlayingDetail.className = "now-playing-detail";
+    this.nowPlaying.append(this.nowPlayingHeading, this.nowPlayingTitle, this.nowPlayingDetail);
+    card.append(this.nowPlaying);
     this.shadowRoot.append(style, card);
     this.image.addEventListener("error", () => this._showFallback());
   }
@@ -389,6 +411,13 @@ class IntuiBaseRadioArtwork extends HTMLElement {
     this.label.textContent = station;
     this.label.title = station;
     this.station.textContent = radioText(hass, playerState);
+    const title = state?.attributes?.media_title || "";
+    const artist = state?.attributes?.media_artist || "";
+    const album = state?.attributes?.media_album_name || "";
+    this.nowPlayingHeading.textContent = radioText(hass, "now_playing");
+    this.nowPlayingTitle.textContent = title;
+    this.nowPlayingDetail.textContent = [artist, album].filter(Boolean).join(" · ");
+    this.nowPlaying.style.display = title ? "block" : "none";
     if (imageUrl === this._imageUrl) return;
     this._imageUrl = imageUrl;
     if (!imageUrl) {
@@ -405,7 +434,7 @@ class IntuiBaseRadioArtwork extends HTMLElement {
     this.fallback.style.display = "block";
   }
 
-  getCardSize() { return 5; }
+  getCardSize() { return this.nowPlaying?.style.display === "block" ? 7 : 5; }
 }
 
 customElements.define("intuibase-radio-artwork", IntuiBaseRadioArtwork);

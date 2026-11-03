@@ -3,6 +3,7 @@
 from homeassistant.const import Platform
 
 DOMAIN = "intuibase_radio"
+HTTP_USER_AGENT = "IntuiBase-Radio (+https://github.com/intuibase/ha-intuibase-radio)"
 PLATFORMS = [
     Platform.BUTTON,
     Platform.MEDIA_PLAYER,
@@ -15,6 +16,7 @@ CONF_DASHBOARD_NAME = "dashboard_name"
 CONF_TARGET_PLAYER = "target_player"
 CONF_EXCLUDED_PLAYERS = "excluded_players"
 CONF_STATIONS = "stations"
+CONF_STATION_ORDER = "station_order"
 DEFAULT_DASHBOARD_NAME = "Radio"
 
 # Stable entity IDs used by the integration-managed dashboard. Existing entries

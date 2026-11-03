@@ -41,9 +41,11 @@ The same form controls the dashboard and hidden media players.
 - station and output selection;
 - play, resume, pause, and stop controls;
 - manual previous/next stream fallback controls;
+- independent playback and automatic recovery on multiple outputs;
 - volume control;
 - optional integration-managed Lovelace dashboard;
 - station artwork from the Radio Browser `favicon` field;
+- song and programme metadata from the output player or ICY stream;
 - connection history containing the attempt number, URL, and error;
 - automatic fallback after a playback error, 30 seconds without a connection,
   or 60 seconds of buffering without playback;
@@ -161,6 +163,73 @@ an output does not send a volume command to the device.
 The **Resume** action only resumes the existing media session by calling
 `media_player.media_play`.
 
+## Simultaneous playback and recovery
+
+Each output has its own station, candidate stream URLs, current URL and recovery
+supervisor. Changing the dashboard selection does not change sessions already
+playing on other devices. Starting a new station on the same output replaces only
+that output's previous session.
+
+After an unexpected idle state, recovery waits 5 seconds and retries the current
+URL before cycling through the remaining station URLs. Buffering gets a 60-second
+grace period. Failed rounds are followed by 30- and 120-second delays and a fresh
+Radio Browser lookup, with at most three recovery rounds. Each URL still has a
+30-second connection and 60-second buffering timeout. Recovery does not alter
+volume. A brief interruption that resolves itself does not send another play
+command.
+
+Spotify or other media taking over the output cancels that output's supervision.
+Pause, off and explicit HA stop commands also cancel it. Supervision requires the
+player to have reported the requested `media_content_id`; players that omit this
+identity can still play manually but are not restarted automatically. Unknown
+playing sources are left alone. Detection relies on the state and metadata
+reported by the player, rather than measuring audio. An external stop that only
+reports idle and no identifiable stop command is indistinguishable from a stream
+failure. Sessions are not restored after restarting HA; start the station through
+this integration again to enable supervision.
+
+The dashboard selectors are shared Home Assistant entities. For independent
+buttons or automations used by multiple people, supply the output and station in
+one action, without changing those selectors:
+
+```yaml
+action: intuibase_radio.play_station
+data:
+  entity_id: media_player.kitchen_pair
+  station: Polskie Radio Trójka
+```
+
+Use the station's configured display name. The status sensor's `playback_sessions`
+attribute lists each output's station, URL, phase and recovery status.
+
+Station artwork is selected independently of the working audio URL: the
+integration checks candidate favicons and skips failed or non-image responses.
+Successful image choices are cached for 30 minutes.
+
+## Now playing
+
+When the active output reports a title, the artwork card shows an **On air**
+section with the song or programme title, artist and album when available. The
+same fields are exposed by the native radio media-player entity and the status
+sensor. A missing title hides this section; the station artwork remains visible.
+
+Player metadata takes priority. For streams supporting ICY metadata, the
+integration also reads `StreamTitle` and refreshes it every 30 seconds using
+bounded HTTP probes. Sessions playing the same URL share the probe cache. ICY
+`Artist - Title` values are split into artist and title; a programme title can be
+shown without an artist. Explicit empty titles clear the display, and stream
+metadata expires after two minutes without a successful update.
+
+HLS/DASH playlists are not treated as ICY streams. Their titles are displayed only
+when supplied by the output player. Some stations and devices provide no usable
+metadata, so song or programme information is not available for every stream.
+Metadata errors do not restart playback or change volume. Stopping, changing the
+stream or switching to another source clears the previous information.
+
+Each output keeps its own metadata. The status sensor and its `playback_sessions`
+attribute expose `media_title`, `media_artist`, `media_album_name`,
+`metadata_source` (`player` or `stream`) and `metadata_updated_at`.
+
 ## Station catalogue
 
 Edit the station list in **Settings → Devices & services → IntuiBase Radio
@@ -176,6 +245,9 @@ A plain name is also its Radio Browser search phrase (`query`). Use
 `Display name = search phrase` when they should differ. Add, remove or reorder
 lines to change the station list. Blank lines are ignored; station names must
 be unique (case-insensitive), and at least one station is required.
+The entered line order is stored explicitly and survives Home Assistant restarts.
+Older lists containing the full built-in catalogue recover its default order,
+with custom additions kept at the end. Saving the form records any custom order.
 
 Saving options automatically reloads the integration and updates the dashboard,
 station selector and media-player sources. Existing installations keep the
@@ -260,7 +332,8 @@ settings are stored in Home Assistant's integration options.
 
 The integration version is defined in
 [`custom_components/intuibase_radio/manifest.json`](custom_components/intuibase_radio/manifest.json).
-The frontend resource cache version is derived from this manifest automatically.
+The frontend resource cache version is derived from the manifest and shipped
+JavaScript content automatically.
 Write release notes in English in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 To publish a release:

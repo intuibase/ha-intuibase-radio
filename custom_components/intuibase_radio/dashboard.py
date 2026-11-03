@@ -115,7 +115,7 @@ class RadioDashboard:
                             {
                                 "type": "custom:intuibase-radio-artwork",
                                 "entity": "sensor.intuibase_radio_status",
-                                "grid_options": {"columns": 12, "rows": 5},
+                                "grid_options": {"columns": 12, "rows": "auto"},
                             },
                         ],
                     },

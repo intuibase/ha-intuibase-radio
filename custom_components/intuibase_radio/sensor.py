@@ -26,6 +26,7 @@ class RadioStatus(RadioEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict:
         return {
+            **self.controller.metadata_attributes,
             "station": self.controller.station,
             "playing_station": self.controller.playing_station,
             "media_player": self.controller.player,
@@ -36,4 +37,8 @@ class RadioStatus(RadioEntity, SensorEntity):
             "activity_log": self.controller.activity_log,
             "short_status": self.controller.short_status,
             "player_state": self.controller.player_state,
+            "playback_sessions": {
+                player: session.diagnostics()
+                for player, session in self.controller.sessions.items()
+            },
         }

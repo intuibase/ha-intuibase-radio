@@ -93,3 +93,23 @@ test('volume title, help and slider accessible name switch languages', () => {
   volume.hass = hass('fr');
   assert.equal(volume.title.textContent, 'Volume');
 });
+
+test('now playing updates with an unchanged image and supports programme titles', () => {
+  const artwork = card('intuibase-radio-artwork');
+  const attributes = { playing_station: 'BBC', player_state: 'playing',
+    station_image_url: 'https://images.test/bbc.png', media_title: 'Song',
+    media_artist: 'Artist', media_album_name: 'Album' };
+  artwork.hass = hass('pl', { attributes });
+  assert.equal(artwork.nowPlayingHeading.textContent, 'Teraz na antenie');
+  assert.equal(artwork.nowPlayingTitle.textContent, 'Song');
+  assert.equal(artwork.nowPlayingDetail.textContent, 'Artist · Album');
+  assert.equal(artwork.nowPlaying.style.display, 'block');
+  artwork.hass = hass('de', { attributes: { ...attributes, media_title: '<b>Evening programme</b>',
+    media_artist: null, media_album_name: null } });
+  assert.equal(artwork.nowPlayingHeading.textContent, 'Jetzt auf Sendung');
+  assert.equal(artwork.nowPlayingTitle.textContent, '<b>Evening programme</b>');
+  assert.equal(artwork.nowPlayingDetail.textContent, '');
+  artwork.hass = hass('en', { attributes: { ...attributes, media_title: null } });
+  assert.equal(artwork.nowPlaying.style.display, 'none');
+  assert.equal(artwork.nowPlayingTitle.textContent, '');
+});

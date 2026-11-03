@@ -12,11 +12,12 @@ from .const import (
     CONF_DASHBOARD_NAME,
     CONF_EXCLUDED_PLAYERS,
     CONF_STATIONS,
+    CONF_STATION_ORDER,
     DEFAULT_DASHBOARD_NAME,
     DOMAIN,
     STATIONS,
 )
-from .stations import format_stations, parse_stations
+from .stations import format_stations, ordered_stations, parse_stations
 
 
 def _station_field(default: str) -> dict:
@@ -52,7 +53,7 @@ class InternetRadioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(
                 title="IntuiBase Radio",
                 data={},
-                options={**user_input, CONF_STATIONS: stations},
+                options={**user_input, CONF_STATIONS: stations, CONF_STATION_ORDER: list(stations)},
             )
         return self.async_show_form(
             step_id="user",
@@ -101,6 +102,7 @@ class InternetRadioOptionsFlow(config_entries.OptionsFlowWithReload):
                     **self.config_entry.options,
                     **user_input,
                     CONF_STATIONS: stations,
+                    CONF_STATION_ORDER: list(stations),
                 }
             )
         return self.async_show_form(
@@ -110,7 +112,7 @@ class InternetRadioOptionsFlow(config_entries.OptionsFlowWithReload):
                     **_station_field(
                         user_input[CONF_STATIONS] if user_input is not None
                         else format_stations(
-                            self.config_entry.options.get(CONF_STATIONS, STATIONS)
+                            ordered_stations(self.config_entry.options)
                         )
                     ),
                     vol.Optional(

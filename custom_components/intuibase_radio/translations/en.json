@@ -91,5 +91,21 @@
         "name": "Status"
       }
     }
+  },
+  "services": {
+    "play_station": {
+      "name": "Play station",
+      "description": "Play a configured station on an output independently of the shared dashboard selections.",
+      "fields": {
+        "entity_id": {
+          "name": "Output player",
+          "description": "Media player on which to start this station."
+        },
+        "station": {
+          "name": "Station",
+          "description": "Station name from the configured catalogue."
+        }
+      }
+    }
   }
 }

@@ -91,5 +91,21 @@
         "name": "Status"
       }
     }
+  },
+  "services": {
+    "play_station": {
+      "name": "Sender wiedergeben",
+      "description": "Einen konfigurierten Sender auf einem Gerät unabhängig von der gemeinsamen Dashboard-Auswahl wiedergeben.",
+      "fields": {
+        "entity_id": {
+          "name": "Ausgabegerät",
+          "description": "Medienplayer, auf dem dieser Sender gestartet werden soll."
+        },
+        "station": {
+          "name": "Sender",
+          "description": "Sendername aus dem konfigurierten Katalog."
+        }
+      }
+    }
   }
 }

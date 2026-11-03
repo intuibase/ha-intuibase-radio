@@ -1,19 +1,24 @@
 """Polish Internet Radio controller for Home Assistant media players."""
 
+import hashlib
 from pathlib import Path
 
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.lovelace.const import LOVELACE_DATA
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EVENT_STATE_CHANGED
+from homeassistant.const import ATTR_ENTITY_ID, EVENT_CALL_SERVICE, EVENT_STATE_CHANGED
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import config_validation as cv
 from homeassistant.loader import async_get_integration
+
+import voluptuous as vol
 
 from .const import (
     CONF_CREATE_DASHBOARD,
     CONF_DASHBOARD_NAME,
+    CONF_STATION_ORDER,
     DEFAULT_DASHBOARD_NAME,
     DOMAIN,
     ENTITY_IDS,
@@ -21,24 +26,34 @@ from .const import (
 )
 from .controller import RadioController
 from .dashboard import RadioDashboard
+from .stations import ordered_stations
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Create the controller, its entities and its dashboard."""
     if entry.title != "IntuiBase Radio":
         hass.config_entries.async_update_entry(entry, title="IntuiBase Radio")
+    station_order = list(ordered_stations(entry.options))
+    if list(entry.options.get(CONF_STATION_ORDER, [])) != station_order:
+        hass.config_entries.async_update_entry(
+            entry, options={**entry.options, CONF_STATION_ORDER: station_order},
+        )
     controller = RadioController(hass, entry)
     domain_data = hass.data.setdefault(DOMAIN, {})
     domain_data[entry.entry_id] = controller
     if not domain_data.get("_frontend_registered"):
         integration = await async_get_integration(hass, DOMAIN)
+        resource_path = Path(__file__).parent / "www" / "internet-radio-card.js"
+        resource_hash = hashlib.sha256(
+            await hass.async_add_executor_job(resource_path.read_bytes)
+        ).hexdigest()[:12]
         resource_url = (
-            f"/intuibase_radio/internet-radio-card.js?v={integration.manifest['version']}"
+            f"/intuibase_radio/internet-radio-card.js?v={integration.manifest['version']}&h={resource_hash}"
         )
         await hass.http.async_register_static_paths(
             [
                 StaticPathConfig(
                     "/intuibase_radio/internet-radio-card.js",
-                    str(Path(__file__).parent / "www" / "internet-radio-card.js"),
+                    str(resource_path),
                     cache_headers=False,
                 )
             ]
@@ -107,9 +122,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     def state_changed(event) -> None:
         entity_id = event.data.get("entity_id", "")
         if entity_id.startswith("media_player."):
+            controller.player_changed(entity_id, event.data.get("new_state"))
             controller.refresh_players()
 
     controller.unsubscribe = hass.bus.async_listen(EVENT_STATE_CHANGED, state_changed)
+    controller.unsubscribe_services = hass.bus.async_listen(EVENT_CALL_SERVICE, controller.service_called)
+
+    async def play_station(call) -> None:
+        await controller.play(call.data[ATTR_ENTITY_ID], call.data["station"], context=call.context)
+
+    hass.services.async_register(
+        DOMAIN, "play_station", play_station,
+        schema=vol.Schema({vol.Required(ATTR_ENTITY_ID): cv.entity_id, vol.Required("station"): str}),
+    )
     controller.refresh_players()
     return True
 
@@ -121,6 +146,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         controller = hass.data[DOMAIN].pop(entry.entry_id)
         if controller.unsubscribe:
             controller.unsubscribe()
+        if controller.unsubscribe_services:
+            controller.unsubscribe_services()
+        hass.services.async_remove(DOMAIN, "play_station")
+        await controller.async_shutdown()
         if controller.dashboard:
             await controller.dashboard.async_stop()
     return unloaded

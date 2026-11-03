@@ -27,11 +27,6 @@ class StationSelect(RadioEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         self.controller.station = option
-        self.controller.stream_url = None
-        self.controller.attempt = 0
-        self.controller.attempt_count = 0
-        self.controller.streams = []
-        self.controller.stream_index = -1
         self.controller.set_status(
             self.controller._t("Selected", "Wybrano") + f": {option}"
         )

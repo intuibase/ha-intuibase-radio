@@ -1,5 +1,6 @@
 """Tests using Home Assistant's actual configuration and entity APIs."""
 import asyncio
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -14,12 +15,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from custom_components.intuibase_radio.config_flow import (
     InternetRadioConfigFlow, InternetRadioOptionsFlow,
 )
-from custom_components.intuibase_radio.const import CONF_STATIONS, STATIONS
+from custom_components.intuibase_radio.const import CONF_STATION_ORDER, CONF_STATIONS, STATIONS
 from custom_components.intuibase_radio.controller import RadioController
 from custom_components.intuibase_radio.media_player import InternetRadioPlayer
 from custom_components.intuibase_radio.number import RadioVolume
 from custom_components.intuibase_radio.select import PlayerSelect, StationSelect
-from custom_components.intuibase_radio.stations import format_stations, parse_stations
+from custom_components.intuibase_radio.stations import format_stations, ordered_stations, parse_stations
 
 
 class StationTests(unittest.TestCase):
@@ -35,11 +36,38 @@ class StationTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 parse_stations(value)
 
+    def test_explicit_order_survives_sorted_json_storage(self):
+        stations = parse_stations('Z station = Z query\nA station\nM station = M query')
+        stored = json.loads(json.dumps({CONF_STATIONS: stations,
+                                       CONF_STATION_ORDER: list(stations)}, sort_keys=True))
+        self.assertEqual(list(stored[CONF_STATIONS]), ['A station', 'M station', 'Z station'])
+        self.assertEqual(list(ordered_stations(stored)), list(stations))
+        self.assertEqual(ordered_stations(stored)['Z station'], 'Z query')
+
+    def test_legacy_extended_defaults_restore_default_order_and_keep_additions(self):
+        stations = {**STATIONS, 'Kabana Rooftop Marrakech': 'Kabana query',
+                    'Marrakech Plus': 'Marrakech Plus'}
+        stations['Polskie Radio Trójka'] = 'custom Trójka query'
+        stored = json.loads(json.dumps({CONF_STATIONS: stations}, sort_keys=True))
+        restored = ordered_stations(stored)
+        self.assertEqual(list(restored), [*STATIONS, 'Kabana Rooftop Marrakech', 'Marrakech Plus'])
+        self.assertEqual(restored['Polskie Radio Trójka'], 'custom Trójka query')
+        self.assertEqual(restored['Kabana Rooftop Marrakech'], 'Kabana query')
+
+    def test_explicit_custom_order_takes_priority_over_builtin_order(self):
+        order = list(reversed(STATIONS))
+        self.assertEqual(list(ordered_stations({CONF_STATIONS: STATIONS, CONF_STATION_ORDER: order})), order)
+
+    def test_removed_stations_and_duplicate_order_entries_are_ignored(self):
+        options = {CONF_STATIONS: {'A': 'a', 'B': 'b'}, CONF_STATION_ORDER: ['B', 'Gone', 'B']}
+        self.assertEqual(list(ordered_stations(options)), ['B', 'A'])
+
 
 class RuntimeTests(unittest.IsolatedAsyncioTestCase):
     def make_hass(self):
         hass = MagicMock()
         hass.config.language = 'pl'
+        hass.async_create_background_task.side_effect = lambda coroutine, name: asyncio.create_task(coroutine)
         return hass
 
     def options_flow(self, options):
@@ -66,6 +94,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         result = await flow.async_step_init({'stations': 'BBC\nMy radio = query'})
         self.assertEqual(result['type'], 'create_entry')
         self.assertEqual(result['data']['stations'], {'BBC': 'BBC', 'My radio': 'query'})
+        self.assertEqual(result['data'][CONF_STATION_ORDER], ['BBC', 'My radio'])
         self.assertEqual(result['data']['target_player'], options['target_player'])
         self.assertEqual(result['data']['excluded_players'], options['excluded_players'])
 
@@ -85,6 +114,18 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         flow._abort_if_unique_id_configured = MagicMock()
         result = await flow.async_step_user({'stations': 'My radio = my query'})
         self.assertEqual(result['options']['stations'], {'My radio': 'my query'})
+        self.assertEqual(result['options'][CONF_STATION_ORDER], ['My radio'])
+
+    async def test_options_form_and_entities_use_saved_station_order(self):
+        options = json.loads(json.dumps({CONF_STATIONS: {'Z': 'query Z', 'A': 'A'},
+                                        CONF_STATION_ORDER: ['Z', 'A']}, sort_keys=True))
+        flow = self.options_flow(options)
+        result = await flow.async_step_init()
+        self.assertEqual(result['data_schema']({})['stations'], 'Z = query Z\nA')
+        controller = RadioController(self.make_hass(), SimpleNamespace(options=options))
+        self.assertEqual(list(controller.stations), ['Z', 'A'])
+        self.assertEqual(StationSelect(controller).options, ['Z', 'A'])
+        self.assertEqual(InternetRadioPlayer(controller).source_list, ['Z', 'A'])
 
     async def test_controller_entities_and_query(self):
         hass = self.make_hass()
@@ -282,9 +323,10 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         hass.services.async_call = AsyncMock()
         controller.resolve_streams = AsyncMock(
             return_value=[('https://radio.test/live', 'music', None)])
-        controller._play_stream = AsyncMock()
-        await controller.play()
-        controller._play_stream.assert_awaited_once_with(0)
+        with patch('custom_components.intuibase_radio.playback.PlaybackSession.attempt',
+                   new=AsyncMock()) as attempt:
+            await controller.play()
+        attempt.assert_awaited_once_with(0, automatic=False)
         hass.services.async_call.assert_not_called()
 
 

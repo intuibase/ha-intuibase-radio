@@ -6,20 +6,25 @@ import asyncio
 import logging
 import re
 import socket
+import time
 import unicodedata
 
-from aiohttp import ClientSession, TCPConnector
+from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.media_player import MediaPlayerEntityFeature
-from homeassistant.const import ATTR_ENTITY_ID, EVENT_STATE_CHANGED, STATE_UNAVAILABLE, STATE_UNKNOWN
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.const import ATTR_ENTITY_ID, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.core import Context, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import target as target_helpers
 from homeassistant.helpers.entity_component import async_update_entity
 from homeassistant.util import dt as dt_util
 
-from .const import CONF_EXCLUDED_PLAYERS, CONF_STATIONS, CONF_TARGET_PLAYER, RADIO_BROWSER_URLS, STATIONS
+from .const import CONF_EXCLUDED_PLAYERS, CONF_TARGET_PLAYER, HTTP_USER_AGENT, RADIO_BROWSER_URLS
 
 from .localize import translate
+from .metadata import StreamMetadataReader
+from .playback import PlaybackSession
+from .stations import ordered_stations
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,7 +40,7 @@ class RadioController:
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
         self.entry = entry
-        self.stations = dict(entry.options.get(CONF_STATIONS, STATIONS))
+        self.stations = ordered_stations(entry.options)
         self.station = next(iter(self.stations))
         self.playing_station: str | None = None
         self.player: str | None = entry.options.get(CONF_TARGET_PLAYER)
@@ -56,7 +61,12 @@ class RadioController:
         self.players: dict[str, str] = {}
         self.listeners: list = []
         self.unsubscribe = None
+        self.unsubscribe_services = None
         self.dashboard = None
+        self.sessions: dict[str, PlaybackSession] = {}
+        self.metadata_reader = StreamMetadataReader()
+        self._tasks: set[asyncio.Task] = set()
+        self._image_cache: dict[tuple[str, ...], tuple[float, str | None]] = {}
         self.set_status(self._t("Ready", "Gotowe"), notify=False)
 
     def _t(self, english: str, polish: str) -> str:
@@ -78,8 +88,9 @@ class RadioController:
             self.notify()
 
     @callback
-    def add_listener(self, listener) -> None:
+    def add_listener(self, listener):
         self.listeners.append(listener)
+        return lambda: self.listeners.remove(listener)
 
     @callback
     def notify(self) -> None:
@@ -119,6 +130,7 @@ class RadioController:
             players[label] = state.entity_id
         changed = players != self.players
         self.players = players
+        previous_player = self.player
         if self.player not in players.values():
             self.player = next(iter(players.values()), None)
             changed = True
@@ -132,21 +144,10 @@ class RadioController:
                     changed |= new_volume != self.volume
                     self.volume = new_volume
             if state and state.state != self.player_state:
-                previous_player_state = self.player_state
                 self.player_state = state.state
-                if self.stream_url:
-                    if state.state == "buffering":
-                        self.short_status = self._t("Buffering…", "Buforuję…")
-                    elif state.state == "playing":
-                        self.short_status = self._t("Playing", "Odtwarzam") + f": {self.station}"
-                    elif state.state == "paused":
-                        self.short_status = self._t("Paused", "Pauza")
-                    elif state.state == "idle" and previous_player_state in (
-                        "buffering",
-                        "playing",
-                    ):
-                        self.short_status = self._t("Ready", "Gotowe")
                 changed = True
+        if previous_player != self.player:
+            self.show_session()
         if changed:
             self.notify()
 
@@ -159,6 +160,7 @@ class RadioController:
         options = {**self.entry.options, CONF_TARGET_PLAYER: entity_id}
         self.hass.config_entries.async_update_entry(self.entry, options=options)
         self.refresh_players()
+        self.show_session()
         self.notify()
         try:
             await async_update_entity(self.hass, entity_id)
@@ -175,8 +177,11 @@ class RadioController:
     def selected_player_name(self) -> str | None:
         return next((name for name, entity in self.players.items() if entity == self.player), None)
 
-    async def resolve_streams(self) -> list[tuple[str, str, str | None]]:
-        query = self.stations[self.station]
+    async def resolve_streams(
+        self, station: str | None = None, query: str | None = None,
+    ) -> list[tuple[str, str, str | None]]:
+        station = station or self.station
+        query = query if query is not None else self.stations[station]
         params = {
             "name": query,
             "hidebroken": "true",
@@ -193,7 +198,7 @@ class RadioController:
                     async with session.get(
                         api_url,
                         params=params,
-                        headers={"User-Agent": "IntuiBase-Radio/0.3.0"},
+                        headers={"User-Agent": HTTP_USER_AGENT},
                         timeout=15,
                     ) as response:
                         response.raise_for_status()
@@ -217,7 +222,7 @@ class RadioController:
         if not results:
             raise ValueError(
                 self._t("No streams found for", "Nie znaleziono streamu dla")
-                + f": {self.station}"
+                + f": {station}"
             )
         wanted = _plain(query)
         results.sort(
@@ -233,15 +238,18 @@ class RadioController:
         )
         streams: list[tuple[str, str, str | None]] = []
         seen: set[str] = set()
-        fallback_image = next(
-            (
-                image
-                for result in results
-                if (image := result.get("favicon"))
-                and image.startswith(("http://", "https://"))
-            ),
-            None,
+        image_results = sorted(
+            results,
+            key=lambda item: (
+                _plain(item.get("name", "")) == _plain(station),
+                str(item.get("favicon") or "").startswith("https://"),
+            ), reverse=True,
         )
+        image = await self.resolve_station_image([
+            item["favicon"] for item in image_results
+            if isinstance(item.get("favicon"), str)
+            and item["favicon"].startswith(("http://", "https://"))
+        ])
         for result in results:
             url = result.get("url_resolved") or result.get("url")
             if not url or url in seen:
@@ -249,9 +257,6 @@ class RadioController:
             seen.add(url)
             codec = str(result.get("codec") or "").upper()
             media_type = "audio/aac" if "AAC" in codec else "audio/mpeg"
-            image = result.get("favicon")
-            if not image or not image.startswith(("http://", "https://")):
-                image = fallback_image
             streams.append((url, media_type, image))
         if not streams:
             raise ValueError(
@@ -259,171 +264,189 @@ class RadioController:
                     "The station did not return a stream URL",
                     "Stacja nie zwróciła adresu streamu",
                 )
-                + f": {self.station}"
+                + f": {station}"
             )
         return streams
 
-    async def _wait_for_player_state(self, expected: set[str]) -> str:
-        """Wait until the target reports one of the expected playback states."""
-        changed = asyncio.Event()
-        result: str | None = None
-
-        @callback
-        def state_changed(event: Event) -> None:
-            nonlocal result
-            if event.data.get("entity_id") != self.player:
-                return
-            state = event.data.get("new_state")
-            if state is not None and state.state in expected:
-                result = state.state
-                changed.set()
-
-        unsubscribe = self.hass.bus.async_listen(EVENT_STATE_CHANGED, state_changed)
+    async def resolve_station_image(self, candidates: list[str]) -> str | None:
+        """Use a working station logo, even if the chosen stream has a bad one."""
+        candidates = list(dict.fromkeys(candidates))[:5]
+        if not candidates:
+            return None
+        key = tuple(candidates)
+        cached = self._image_cache.get(key)
+        if cached and cached[0] > time.monotonic():
+            return cached[1]
+        image = None
         try:
-            state = self.hass.states.get(self.player) if self.player else None
-            if state is not None and state.state in expected:
-                return state.state
-            await changed.wait()
-            assert result is not None
-            return result
-        finally:
-            unsubscribe()
+            async with asyncio.timeout(8):
+                async with ClientSession(connector=TCPConnector(family=socket.AF_INET)) as session:
+                    for candidate in candidates:
+                        try:
+                            async with session.get(
+                                candidate, timeout=ClientTimeout(total=2),
+                                headers={"User-Agent": HTTP_USER_AGENT},
+                            ) as response:
+                                response.raise_for_status()
+                                if response.headers.get("Content-Type", "").lower().startswith("image/"):
+                                    image = candidate
+                                    break
+                        except Exception:
+                            continue
+        except TimeoutError:
+            pass
+        self._image_cache[key] = (time.monotonic() + (1800 if image else 60), image)
+        return image
 
-    async def _play_stream(self, index: int) -> None:
-        """Play one resolved stream and require a real playing confirmation."""
-        url, _media_type, image = self.streams[index]
-        self.stream_index = index
-        self.attempt = index + 1
-        self.attempt_count = len(self.streams)
-        self.stream_url = url
-        self.station_image_url = image
-        self.playing_station = self.station
-        self.playback_phase = "connecting"
-        self.short_status = self._t("Connecting to stream", "Łączę stream") + f" {index + 1}/{len(self.streams)}…"
-        self.set_status(self._t("Connecting", "Łączenie") + f" {index + 1}/{len(self.streams)}: {url}")
-        async with asyncio.timeout(30):
-            await self.hass.services.async_call(
-                "media_player",
-                "play_media",
-                {
-                    ATTR_ENTITY_ID: self.player,
-                    "media_content_id": url,
-                    "media_content_type": "music",
-                },
-                blocking=True,
+    def create_task(self, coroutine) -> asyncio.Task:
+        task = self.hass.async_create_background_task(coroutine, "IntuiBase Radio playback")
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+        return task
+
+    @callback
+    def show_session(self) -> None:
+        """Project the selected device's session into the existing dashboard."""
+        session = self.sessions.get(self.player)
+        self.streams = session.streams if session else []
+        self.stream_index = session.index if session else -1
+        self.stream_url = session.url if session else None
+        self.station_image_url = session.image if session else None
+        self.playing_station = session.station if session else None
+        self.attempt = session.index + 1 if session else 0
+        self.attempt_count = len(session.streams) if session else 0
+        self.playback_phase = session.phase if session else "idle"
+        self.activity_log = list(session.activity_log) if session else []
+        self.status = session.status if session else self._t("Ready", "Gotowe")
+        self.short_status = session.short_status if session else self.status
+
+    @callback
+    def session_updated(self, session: PlaybackSession) -> None:
+        if self.sessions.get(session.player) is not session:
+            return
+        if self.player == session.player:
+            self.show_session()
+        self.notify()
+
+    @callback
+    def player_changed(self, entity_id: str, state) -> None:
+        if session := self.sessions.get(entity_id):
+            session.observe(state)
+            session.refresh_metadata(state)
+
+    @property
+    def now_playing(self):
+        session = self.sessions.get(self.player)
+        return session.now_playing if session else None
+
+    @property
+    def metadata_attributes(self) -> dict:
+        session = self.sessions.get(self.player)
+        return session.metadata_attributes() if session else {
+            "media_title": None, "media_artist": None, "media_album_name": None,
+            "metadata_source": None, "metadata_updated_at": None,
+        }
+
+    @callback
+    def service_called(self, event) -> None:
+        """Respect explicit stop/pause and playback started outside the radio."""
+        if event.data.get("domain") != "media_player":
+            return
+        service = event.data.get("service")
+        if service not in ("media_stop", "media_pause", "turn_off", "play_media"):
+            return
+        data = event.data.get("service_data", {})
+        targets = data.get(ATTR_ENTITY_ID) or []
+        if isinstance(targets, str):
+            targets = [item.strip() for item in targets.split(",")]
+        targets = set(targets)
+        if any(data.get(key) for key in ("area_id", "device_id", "floor_id", "label_id")):
+            selected = target_helpers.async_extract_referenced_entity_ids(
+                self.hass, target_helpers.TargetSelection(data), True,
             )
-            state = await self._wait_for_player_state({"buffering", "playing"})
-        if state == "buffering":
-            self.playback_phase = "buffering"
-            self.short_status = self._t("Buffering stream", "Buforuję stream") + f" {index + 1}/{len(self.streams)}…"
-            self.set_status(self._t("Buffering", "Buforowanie") + f" {index + 1}/{len(self.streams)}: {url}")
-            async with asyncio.timeout(60):
-                await self._wait_for_player_state({"playing"})
-        self.playback_phase = "playing"
+            targets |= selected.referenced | selected.indirectly_referenced
+        for player, session in list(self.sessions.items()):
+            if player not in targets and "all" not in targets:
+                continue
+            if session.command_context and event.context.id == session.command_context.id:
+                continue
+            phase = "released" if service == "play_media" else (
+                "paused" if service == "media_pause" else "stopped")
+            session.suspend(phase)
 
-    async def switch_stream(self, offset: int) -> None:
-        """Manually move to the previous or next resolved stream."""
-        if not self.player:
+    async def async_shutdown(self) -> None:
+        """Cancel all supervisors on unload, without stopping the devices."""
+        for session in self.sessions.values():
+            session.suspend()
+        tasks = list(self._tasks)
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _run_session(self, session: PlaybackSession, *, offset: int | None = None) -> None:
+        task = session.launch(session.start(offset=offset))
+        try:
+            await task
+        except asyncio.CancelledError:
+            if session.desired_playing:
+                raise
+
+    async def play(self, entity_id: str | None = None, station: str | None = None,
+                   *, context: Context | None = None) -> None:
+        # Capture both selections before any await; another user may change the
+        # dashboard while this device is resolving or connecting to its stream.
+        player = entity_id or self.player
+        station = station or self.station
+        if not player:
             self.short_status = self._t("Error: no media player", "Błąd: brak odtwarzacza")
             self.set_status(self._t("No media_player available", "Brak odtwarzacza media_player"))
             return
-        if not self.streams:
-            self.short_status = self._t("Searching for streams…", "Szukam streamów…")
-            self.set_status(self._t("Searching for streams", "Wyszukiwanie streamów") + f": {self.station}")
-            try:
-                self.streams = await self.resolve_streams()
-            except Exception as err:
-                self.short_status = self._t("Search error", "Błąd wyszukiwania")
-                self.set_status(self._t("Error", "Błąd") + f": {err}")
-                return
-        if self.stream_index < 0:
-            index = 0 if offset > 0 else len(self.streams) - 1
-        else:
-            index = (self.stream_index + offset) % len(self.streams)
-        try:
-            await self._play_stream(index)
-        except TimeoutError:
-            timeout = 60 if self.playback_phase == "buffering" else 30
-            phase = self._t("buffering", "buforowania") if self.playback_phase == "buffering" else self._t("connection", "połączenia")
-            self.short_status = f"{self._t('Timeout', 'Przekroczono czas')} {phase}: stream {index + 1}/{len(self.streams)}"
-            self.set_status(
-                f"{self._t('Timeout', 'Przekroczono czas')} {phase} {self._t('after', 'po')} {timeout} s: {self.streams[index][0]}"
-            )
-            return
-        except Exception as err:
-            self.short_status = self._t("Stream error", "Błąd streamu") + f" {index + 1}/{len(self.streams)}"
-            self.set_status(self._t("Manually selected stream error", "Błąd ręcznie wybranego streamu") + f": {err}")
-            return
-        self.short_status = self._t("Playing stream", "Odtwarzam stream") + f" {index + 1}/{len(self.streams)}"
-        self.set_status(self._t("Playing", "Gra") + f": {self.station} — {self.streams[index][0]}")
+        if station not in self.stations:
+            raise ValueError(f"Unknown station: {station}")
+        if not player.startswith("media_player."):
+            raise ValueError("The output must be a media_player entity")
+        state = self.hass.states.get(player)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            raise ValueError(self._t("The selected media player is unavailable", "Wybrany odtwarzacz jest niedostępny"))
+        previous = self.sessions.get(player)
+        session = PlaybackSession(self, player, station, self.stations[station], context)
+        self.sessions[player] = session
+        if previous:
+            previous.suspend()
+        await self._run_session(session)
 
-    async def play(self) -> None:
-        if not self.player:
-            self.short_status = self._t("Error: no media player", "Błąd: brak odtwarzacza")
-            self.set_status(self._t("No media player with play_media support", "Brak dostępnego odtwarzacza z obsługą play_media"))
+    async def switch_stream(self, offset: int, *, context: Context | None = None) -> None:
+        player = self.player
+        if not player:
             return
-        player_state = self.hass.states.get(self.player)
-        if player_state is None or player_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-            self.short_status = self._t("Error: media player unavailable", "Błąd: odtwarzacz niedostępny")
-            self.set_status(self._t("The selected media player is unavailable", "Wybrany odtwarzacz jest niedostępny"))
-            return
-        self.activity_log = []
-        self.short_status = self._t("Searching for streams…", "Szukam streamów…")
-        self.set_status(self._t("Searching for streams", "Wyszukiwanie streamów") + f": {self.station}")
-        try:
-            self.streams = await self.resolve_streams()
-            self.attempt_count = len(self.streams)
-            errors: list[str] = []
-            for index, (url, _media_type, _image) in enumerate(self.streams):
-                try:
-                    await self._play_stream(index)
-                except TimeoutError:
-                    timeout = 60 if self.playback_phase == "buffering" else 30
-                    phase = self._t("buffering", "buforowania") if self.playback_phase == "buffering" else self._t("connection", "połączenia")
-                    errors.append(f"{url}: timeout {phase} {timeout} s")
-                    self.short_status = f"{self._t('Timeout', 'Przekroczono czas')} {phase}: stream {index + 1}/{len(self.streams)}"
-                    self.set_status(
-                        f"{self._t('Timeout', 'Przekroczono czas')} {phase} {index + 1}/{len(self.streams)} {self._t('after', 'po')} {timeout} s: {url}"
-                    )
-                    _LOGGER.warning("Radio stream %s timed out after %s seconds: %s", phase, timeout, url)
-                    continue
-                except Exception as err:
-                    errors.append(f"{url}: {err}")
-                    self.short_status = self._t("Stream error", "Błąd streamu") + f" {index + 1}/{len(self.streams)}"
-                    self.set_status(
-                        self._t("Failed attempt", "Nieudana próba") + f" {index + 1}/{len(self.streams)}: {url} — {err}"
-                    )
-                    _LOGGER.warning("Radio stream failed, trying next URL: %s: %s", url, err)
-                    continue
-                self.short_status = (
-                    self._t("Playing stream", "Odtwarzam stream") + f" {index + 1}/{len(self.streams)}: {self.station}"
-                )
-                self.set_status(self._t("Playing", "Gra") + f": {self.station} — {url}")
-                return
-            raise RuntimeError(
-                self._t("None of", "Żaden z") + f" {len(self.streams)} " + self._t("streams worked", "streamów nie zadziałał")
-                + (f" ({errors[-1]})" if errors else "")
-            )
-        except Exception as err:  # Home Assistant surfaces the useful service/API error.
-            _LOGGER.warning("Could not play %s: %s", self.station, err)
-            self.short_status = self._t("Playback error", "Błąd odtwarzania")
-            self.set_status(self._t("Error", "Błąd") + f": {err}")
+        previous = self.sessions.get(player)
+        station = previous.station if previous else self.station
+        query = previous.query if previous else self.stations[station]
+        session = PlaybackSession(self, player, station, query, context)
+        if previous:
+            session.streams = list(previous.streams)
+            session.index = previous.index
+        self.sessions[player] = session
+        if previous:
+            previous.suspend()
+        await self._run_session(session, offset=offset)
 
     async def command(self, service: str) -> None:
-        if not self.player:
-            self.short_status = self._t("Error: no media player", "Błąd: brak odtwarzacza")
-            self.set_status(self._t("No media_player available", "Brak odtwarzacza media_player"))
-        else:
-            await self.hass.services.async_call(
-                "media_player", service, {ATTR_ENTITY_ID: self.player}, blocking=True
-            )
-            label = {
-                "media_play": self._t("Playing", "Odtwarzam"),
-                "media_pause": self._t("Paused", "Pauza"),
-                "media_stop": self._t("Stopped", "Stop"),
-            }.get(service, service)
-            self.short_status = label
-            self.set_status(label)
+        player = self.player
+        if not player:
+            return
+        session = self.sessions.get(player)
+        if session and service in ("media_pause", "media_stop"):
+            session.suspend("paused" if service == "media_pause" else "stopped")
+        await self.hass.services.async_call(
+            "media_player", service, {ATTR_ENTITY_ID: player}, blocking=True
+        )
+        if session and service == "media_play" and session._is_ours(self.hass.states.get(player)):
+            session.desired_playing = True
+            session.phase = "playing"
+            session.update(self._t("Playing", "Odtwarzam") + f": {session.station}")
+            session.observe(self.hass.states.get(player))
+            session.refresh_metadata(self.hass.states.get(player))
 
     async def set_volume(self, value: float) -> None:
         if not self.player:

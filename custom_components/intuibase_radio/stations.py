@@ -1,5 +1,22 @@
 """Convert the editable station catalogue to and from configuration text."""
 
+from .const import CONF_STATION_ORDER, CONF_STATIONS, STATIONS
+
+
+def ordered_stations(options) -> dict[str, str]:
+    """Keep catalogue order independent of JSON object key sorting."""
+    stations = dict(options.get(CONF_STATIONS, STATIONS))
+    order = options.get(CONF_STATION_ORDER)
+    if order is None:
+        # Older entries persisted only a mapping. For an extended built-in
+        # catalogue recover the default order without dropping custom entries.
+        order = list(STATIONS) if STATIONS.keys() <= stations.keys() else []
+    return {
+        name: stations[name]
+        for name in dict.fromkeys([*order, *stations])
+        if name in stations
+    }
+
 
 def format_stations(stations: dict[str, str]) -> str:
     """Show one station per line, keeping distinct search phrases."""

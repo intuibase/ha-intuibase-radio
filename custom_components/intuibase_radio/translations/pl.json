@@ -91,5 +91,21 @@
         "name": "Status"
       }
     }
+  },
+  "services": {
+    "play_station": {
+      "name": "Odtwórz stację",
+      "description": "Odtwórz skonfigurowaną stację na urządzeniu niezależnie od wspólnych wyborów panelu.",
+      "fields": {
+        "entity_id": {
+          "name": "Odtwarzacz docelowy",
+          "description": "Odtwarzacz, na którym uruchomić stację."
+        },
+        "station": {
+          "name": "Stacja",
+          "description": "Nazwa stacji ze skonfigurowanej listy."
+        }
+      }
+    }
   }
 }
