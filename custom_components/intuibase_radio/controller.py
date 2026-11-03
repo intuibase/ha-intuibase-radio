@@ -14,6 +14,7 @@ from homeassistant.components.media_player import MediaPlayerEntityFeature
 from homeassistant.const import ATTR_ENTITY_ID, EVENT_STATE_CHANGED, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers.entity_component import async_update_entity
 from homeassistant.util import dt as dt_util
 
 from .const import CONF_EXCLUDED_PLAYERS, CONF_STATIONS, CONF_TARGET_PLAYER, RADIO_BROWSER_URLS, STATIONS
@@ -39,6 +40,8 @@ class RadioController:
         self.playing_station: str | None = None
         self.player: str | None = entry.options.get(CONF_TARGET_PLAYER)
         self.volume = 0.35
+        self._player_selection = 0
+        self._volume_sync_pending = False
         self.stream_url: str | None = None
         self.station_image_url: str | None = None
         self.attempt = 0
@@ -121,10 +124,13 @@ class RadioController:
             changed = True
         if self.player:
             state = self.hass.states.get(self.player)
-            if state and isinstance(state.attributes.get("volume_level"), (float, int)):
-                new_volume = float(state.attributes["volume_level"])
-                changed |= new_volume != self.volume
-                self.volume = new_volume
+            if not self._volume_sync_pending:
+                value = state.attributes.get("volume_level") if state else None
+                if (isinstance(value, (float, int)) and not isinstance(value, bool)
+                        and 0 <= value <= 1):
+                    new_volume = float(value)
+                    changed |= new_volume != self.volume
+                    self.volume = new_volume
             if state and state.state != self.player_state:
                 previous_player_state = self.player_state
                 self.player_state = state.state
@@ -144,13 +150,26 @@ class RadioController:
         if changed:
             self.notify()
 
-    @callback
-    def select_player(self, entity_id: str) -> None:
-        """Select and persist the output used after future HA restarts."""
+    async def select_player(self, entity_id: str) -> bool:
+        """Select the output and synchronize its current volume."""
+        self._player_selection += 1
+        selection = self._player_selection
+        self._volume_sync_pending = True
         self.player = entity_id
         options = {**self.entry.options, CONF_TARGET_PLAYER: entity_id}
         self.hass.config_entries.async_update_entry(self.entry, options=options)
         self.refresh_players()
+        self.notify()
+        try:
+            await async_update_entity(self.hass, entity_id)
+        except Exception as err:
+            _LOGGER.warning("Could not refresh selected media player %s: %s", entity_id, err)
+        finally:
+            if selection == self._player_selection:
+                self._volume_sync_pending = False
+                self.refresh_players()
+                self.notify()
+        return selection == self._player_selection and self.player == entity_id
 
     @property
     def selected_player_name(self) -> str | None:
@@ -355,15 +374,6 @@ class RadioController:
             self.streams = await self.resolve_streams()
             self.attempt_count = len(self.streams)
             errors: list[str] = []
-            await self.hass.services.async_call(
-                "media_player",
-                "volume_set",
-                {
-                    ATTR_ENTITY_ID: self.player,
-                    "volume_level": self.volume,
-                },
-                blocking=True,
-            )
             for index, (url, _media_type, _image) in enumerate(self.streams):
                 try:
                     await self._play_stream(index)
@@ -416,12 +426,16 @@ class RadioController:
             self.set_status(label)
 
     async def set_volume(self, value: float) -> None:
-        self.volume = value
-        if self.player:
-            await self.hass.services.async_call(
-                "media_player",
-                "volume_set",
-                {ATTR_ENTITY_ID: self.player, "volume_level": value},
-                blocking=True,
-            )
-        self.notify()
+        if not self.player:
+            return
+        player = self.player
+        selection = self._player_selection
+        await self.hass.services.async_call(
+            "media_player",
+            "volume_set",
+            {ATTR_ENTITY_ID: player, "volume_level": value},
+            blocking=True,
+        )
+        if selection == self._player_selection and player == self.player:
+            self.volume = value
+            self.notify()

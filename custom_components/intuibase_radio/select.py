@@ -53,7 +53,7 @@ class PlayerSelect(RadioEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         if option in self.controller.players:
-            self.controller.select_player(self.controller.players[option])
-            self.controller.set_status(
-                self.controller._t("Media player", "Odtwarzacz") + f": {option}"
-            )
+            if await self.controller.select_player(self.controller.players[option]):
+                self.controller.set_status(
+                    self.controller._t("Media player", "Odtwarzacz") + f": {option}"
+                )

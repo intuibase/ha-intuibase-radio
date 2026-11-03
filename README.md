@@ -150,9 +150,13 @@ The **Play station** action:
 1. searches Radio Browser globally using the configured station phrase;
 2. ranks exact and close name matches, preferring HTTPS when relevance is
    otherwise equal;
-3. sets the selected volume on the target player;
-4. calls `media_player.play_media` with the direct URL and media type `music`;
-5. tries the next unique stream URL after an error or timeout.
+3. calls `media_player.play_media` with the direct URL and media type `music`,
+   preserving the target player's current volume;
+4. tries the next unique stream URL after an error or timeout.
+
+Selecting an output refreshes that device's volume. If the device does not report
+a volume level, the slider keeps its current value and remains usable. Selecting
+an output does not send a volume command to the device.
 
 The **Resume** action only resumes the existing media session by calling
 `media_player.media_play`.

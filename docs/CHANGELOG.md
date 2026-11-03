@@ -5,6 +5,17 @@ The release workflow copies the matching version section into GitHub Release not
 
 ## [Unreleased]
 
+### Fixed
+
+- Refresh the selected output player's volume when switching destinations so the
+  volume slider reflects that device's current level.
+- Keep the volume slider available and retain its value if the selected device
+  does not report a volume level, including Cast devices in the off state.
+- Ignore outdated selections and completed volume writes when switching quickly
+  between devices.
+- Preserve the destination device's volume when starting a station instead of
+  sending the controller's previously remembered level.
+
 ## [0.3.5] - 2026-11-02
 
 ### Added
