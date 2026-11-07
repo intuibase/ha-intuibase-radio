@@ -48,7 +48,7 @@ class ReleaseNotesTests(unittest.TestCase):
     def test_current_manifest_has_release_notes(self):
         version = json.loads((ROOT / 'custom_components/intuibase_radio/manifest.json').read_text())['version']
         notes = extract_notes(f'v{version}', version, (ROOT / 'docs/CHANGELOG.md').read_text())
-        self.assertIn('### Added', notes)
+        self.assertRegex(notes, r'(?m)^### (Added|Changed|Deprecated|Removed|Fixed|Security)$')
         self.assertNotIn('[Unreleased]', notes)
 
 

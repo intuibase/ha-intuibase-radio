@@ -17,6 +17,7 @@ from custom_components.intuibase_radio.config_flow import (
 )
 from custom_components.intuibase_radio.const import CONF_STATION_ORDER, CONF_STATIONS, STATIONS
 from custom_components.intuibase_radio.controller import RadioController
+from custom_components.intuibase_radio.button import RadioButton
 from custom_components.intuibase_radio.media_player import InternetRadioPlayer
 from custom_components.intuibase_radio.number import RadioVolume
 from custom_components.intuibase_radio.select import PlayerSelect, StationSelect
@@ -64,6 +65,38 @@ class StationTests(unittest.TestCase):
 
 
 class RuntimeTests(unittest.IsolatedAsyncioTestCase):
+    def test_transport_availability_follows_selected_output(self):
+        hass = self.make_hass()
+        controller = RadioController(hass, SimpleNamespace(options={}))
+        controller.player = 'media_player.kitchen'
+        controller.station = controller.playing_station = 'BBC'
+        buttons = [RadioButton(controller, key, 'mdi:play', service) for key, service in (
+            ('play_station', None), ('resume', 'media_play'),
+            ('pause', 'media_pause'), ('stop', 'media_stop'),
+        )]
+        for state, expected in (
+            ('playing', [False, False, True, True]),
+            ('buffering', [False, False, False, True]),
+            ('paused', [True, True, False, True]),
+            ('idle', [True, False, False, False]),
+            ('off', [True, False, False, False]),
+            ('unknown', [False] * 4), ('unavailable', [False] * 4),
+        ):
+            with self.subTest(state=state):
+                hass.states.get.return_value = State(controller.player, state)
+                self.assertEqual([button.available for button in buttons], expected)
+        hass.states.get.return_value = State(controller.player, 'playing')
+        controller.station = 'Other station'
+        self.assertTrue(buttons[0].available)
+        # Re-read the newly selected output rather than a cached playback state.
+        controller.player = 'media_player.bedroom'
+        hass.states.get.return_value = State(controller.player, 'idle')
+        self.assertEqual([button.available for button in buttons], [True, False, False, False])
+        hass.states.get.return_value = None
+        self.assertFalse(any(button.available for button in buttons))
+        controller.player = None
+        self.assertFalse(any(button.available for button in buttons))
+
     def make_hass(self):
         hass = MagicMock()
         hass.config.language = 'pl'

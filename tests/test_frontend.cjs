@@ -16,7 +16,7 @@ class Element {
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = children; }
   setAttribute(key, value) { this.attributes[key] = value; }
-  addEventListener() {}
+  addEventListener(name, listener) { (this.listeners ??= {})[name] = listener; }
   querySelector() { return null; }
 }
 const cards = new Map();
@@ -37,6 +37,34 @@ const state = { state: 'BBC', attributes: { options: ['BBC', 'Radio 357'] } };
 function hass(language, entity = state) {
   return { language, states: entity ? { 'test.radio': entity } : {} };
 }
+
+test('transport buttons track availability and never send disabled actions', () => {
+  const transport = card('intuibase-radio-transport', { name: 'PAUSE', icon: 'mdi:pause' });
+  let presses = 0;
+  const update = (entity) => {
+    transport.hass = { ...hass('en', entity), callService(domain, service, data) {
+      assert.equal(domain, 'button');
+      assert.equal(service, 'press');
+      assert.equal(data.entity_id, 'test.radio');
+      presses++;
+    } };
+  };
+  assert.equal(transport.button.disabled, true);
+  for (const entity of [null, { state: 'unavailable' }]) {
+    update(entity);
+    assert.equal(transport.button.disabled, true);
+    transport.button.listeners.click();
+  }
+  assert.equal(presses, 0);
+  for (const value of ['unknown', '2026-11-07T12:00:00+00:00']) {
+    update({ state: value });
+    assert.equal(transport.button.disabled, false);
+    transport.button.listeners.click();
+  }
+  assert.equal(presses, 2);
+  update({ state: 'unavailable' });
+  assert.equal(transport.button.disabled, true);
+});
 
 test('frontend translations have matching keys', () => {
   assert.equal(vm.runInContext(`Object.values(RADIO_TRANSLATIONS).every(labels =>

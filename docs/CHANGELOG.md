@@ -5,6 +5,13 @@ The release workflow copies the matching version section into GitHub Release not
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-07
+
+### Changed
+
+- Grey out and disable transport controls according to the selected output's
+  playback state, while allowing a different station to be started during playback.
+
 ## [0.4.0] - 2026-11-03
 
 ### Added

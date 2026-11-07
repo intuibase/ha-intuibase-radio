@@ -163,6 +163,11 @@ an output does not send a volume command to the device.
 The **Resume** action only resumes the existing media session by calling
 `media_player.media_play`.
 
+Transport buttons are greyed out when their action does not apply to the selected
+output: pause is available while playing, resume while paused, and stop while
+playing, buffering or paused. Play station is disabled while the selected station
+is already playing or buffering; selecting another station enables it again.
+
 ## Simultaneous playback and recovery
 
 Each output has its own station, candidate stream URLs, current URL and recovery
@@ -349,7 +354,7 @@ To publish a release:
    git push origin v0.4.0
    ```
 
-For this release, use `v0.4.0`, matching the current manifest and changelog.
+For this release, use `v0.4.1`, matching the current manifest and changelog.
 Tag the commit containing all release files, including the workflow itself.
 
 The [release workflow](.github/workflows/release.yml) runs only when a `v*` tag

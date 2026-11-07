@@ -299,6 +299,60 @@ class IntuiBaseRadioStatus extends HTMLElement {
 
 customElements.define("intuibase-radio-status", IntuiBaseRadioStatus);
 
+class IntuiBaseRadioTransport extends HTMLElement {
+  setConfig(config) {
+    this.config = config;
+    if (!this.shadowRoot) {
+      this.attachShadow({ mode: "open" });
+      const style = document.createElement("style");
+      style.textContent = `
+        :host, ha-card { display: block; height: 100%; }
+        button {
+          display: flex; flex-direction: column; align-items: center;
+          justify-content: center; gap: 8px; width: 100%; height: 100%;
+          min-height: 100px; padding: 16px; border: 0;
+          border-radius: var(--ha-card-border-radius, 12px);
+          background: transparent; color: var(--primary-text-color);
+          font: inherit; cursor: pointer;
+        }
+        button:disabled { color: var(--disabled-text-color); cursor: default; }
+        button:enabled:hover { background: var(--secondary-background-color); }
+        button:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
+        ha-icon { --mdc-icon-size: 36px; }
+      `;
+      const card = document.createElement("ha-card");
+      this.button = document.createElement("button");
+      this.button.type = "button";
+      this.button.disabled = true;
+      this.icon = document.createElement("ha-icon");
+      this.label = document.createElement("span");
+      this.button.append(this.icon, this.label);
+      this.button.addEventListener("click", () => {
+        if (!this.button.disabled) {
+          this._hass?.callService("button", "press", { entity_id: this.config.entity });
+        }
+      });
+      card.append(this.button);
+      this.shadowRoot.append(style, card);
+    }
+    this.icon.setAttribute("icon", config.icon);
+    this.label.textContent = config.name;
+    this.button.setAttribute("aria-label", config.name);
+    if (this._hass) this.hass = this._hass;
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    const state = hass.states[this.config.entity]?.state;
+    // Button entities have an unknown timestamp until their first press.
+    this.button.disabled = !state || state === "unavailable";
+  }
+
+  getCardSize() { return 2; }
+}
+
+customElements.define("intuibase-radio-transport", IntuiBaseRadioTransport);
+
 class IntuiBaseRadioArtwork extends HTMLElement {
   setConfig(config) {
     if (!config.entity) throw new Error(radioText(this._hass, "status_required"));

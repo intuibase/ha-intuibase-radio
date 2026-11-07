@@ -212,16 +212,9 @@ class RadioDashboard:
     @staticmethod
     def _transport_button(entity_id: str, name: str, icon: str) -> dict:
         return {
-            "type": "button",
+            "type": "custom:intuibase-radio-transport",
             "entity": entity_id,
             "name": name,
             "icon": icon,
-            "show_state": False,
             "grid_options": {"columns": 3, "rows": 2},
-            "tap_action": {
-                "action": "perform-action",
-                "perform_action": "button.press",
-                "target": {"entity_id": entity_id},
-            },
-            "hold_action": {"action": "none"},
         }
